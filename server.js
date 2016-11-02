@@ -59,7 +59,11 @@ app.post('/todos', middleware.requireAuthentication, function(req, res) {
 	var body = _.pick(req.body, 'description', 'completed');
 
 	db.todo.create(body).then(function(todo) {
-		res.json(todo.toJSON());
+		req.user.addTodo(todo).then(function() {
+			return todo.reload();
+		}).then(function(todo) {
+			res.json(todo.toJSON());
+		});
 	}, function(e) {
 		res.status(400).json(e);
 	});
@@ -93,23 +97,23 @@ app.put('/todos/:id', function(req, res) {
 
 	if (body.hasOwnProperty('completed')) {
 		attributes.completed = body.completed;
-	} 
+	}
 
 	if (body.hasOwnProperty('description')) {
 		attributes.description = body.description;
-	} 
+	}
 
-	db.todo.findById(todoID).then(function (todo) {
+	db.todo.findById(todoID).then(function(todo) {
 		if (todo) {
-			todo.update(attributes).then(function (todo) {
+			todo.update(attributes).then(function(todo) {
 				res.json(todo.toJSON());
-			}, function (e) {
+			}, function(e) {
 				res.status(400).json(e);
 			});
 		} else {
 			res.status(404).send();
 		}
-	}, function () {
+	}, function() {
 		res.status(500).send();
 	});
 });
@@ -126,8 +130,8 @@ app.post('/users', function(req, res) {
 
 app.post('/users/login', function(req, res) {
 	var body = _.pick(req.body, 'email', 'password');
-	
-	db.user.authenticate(body).then(function (user) {
+
+	db.user.authenticate(body).then(function(user) {
 		var token = user.generateToken('authentication');
 
 		if (token) {
@@ -135,13 +139,15 @@ app.post('/users/login', function(req, res) {
 		} else {
 			res.status(401).send();
 		}
-		
-	}, function () {
+
+	}, function() {
 		res.status(401).send();
 	});
 });
 
-db.sequelize.sync({force: true}).then(function() {
+db.sequelize.sync({
+	force: true
+}).then(function() {
 	app.listen(PORT, function() {
 		console.log('Express listening on port ' + PORT + '!');
 	});
